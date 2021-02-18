@@ -15,7 +15,7 @@ mod helmet_tests {
     macro_rules! assert_header {
         ($response:ident, $name:expr, $value:expr) => {
             match $response.headers().get_one($name) {
-                Some(value) => assert_eq!(value, $value),
+                Some(value) => assert_eq!(value, $value.as_bytes()),
                 None => panic!("missing header '{}' with value '{}'", $name, $value)
             }
         };
@@ -24,7 +24,7 @@ mod helmet_tests {
     macro_rules! assert_no_header {
         ($response:ident, $name:expr) => {
             if let Some(value) = $response.headers().get_one($name) {
-                panic!("unexpected header: '{}={}", $name, value);
+                panic!("unexpected header: '{}={}", $name, String::from_utf8_lossy(value));
             }
         };
     }

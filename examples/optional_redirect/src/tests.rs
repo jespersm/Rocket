@@ -13,7 +13,7 @@ fn test_303(uri: &str, expected_location: &str) {
     let response = client.get(uri).dispatch();
     let location_headers: Vec<_> = response.headers().get("Location").collect();
     assert_eq!(response.status(), Status::SeeOther);
-    assert_eq!(location_headers, vec![expected_location]);
+    assert_eq!(location_headers, vec![expected_location.as_bytes()]);
 }
 
 #[test]

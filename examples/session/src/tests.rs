@@ -26,7 +26,7 @@ fn redirect_on_index() {
     let client = Client::tracked(rocket()).unwrap();
     let response = client.get("/").dispatch();
     assert_eq!(response.status(), Status::SeeOther);
-    assert_eq!(response.headers().get_one("Location"), Some("/login"));
+    assert_eq!(response.headers().get_one("Location"), Some("/login".as_bytes()));
 }
 
 #[test]
@@ -60,7 +60,7 @@ fn login_logout_succeeds() {
     // One more.
     let response = client.get("/login").cookie(login_cookie.clone()).dispatch();
     assert_eq!(response.status(), Status::SeeOther);
-    assert_eq!(response.headers().get_one("Location"), Some("/"));
+    assert_eq!(response.headers().get_one("Location"), Some("/".as_bytes()));
 
     // Logout.
     let response = client.post("/logout").cookie(login_cookie).dispatch();
@@ -69,7 +69,7 @@ fn login_logout_succeeds() {
 
     // The user should be redirected back to the login page.
     assert_eq!(response.status(), Status::SeeOther);
-    assert_eq!(response.headers().get_one("Location"), Some("/login"));
+    assert_eq!(response.headers().get_one("Location"), Some("/login".as_bytes()));
 
     // The page should show the success message, and no errors.
     let response = client.get("/login").dispatch();

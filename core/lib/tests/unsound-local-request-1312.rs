@@ -25,7 +25,7 @@ fn test_local_request_clone_soundness() {
 
     // Ensure we're good.
     let s = iter.next().unwrap();
-    println!("{}", s);
+    println!("{}", String::from_utf8_lossy(s.as_bytes()));
 
     // And that we've got the right data.
     assert_eq!(r1.inner().headers().get("key").collect::<Vec<_>>(), vec!["val1"]);

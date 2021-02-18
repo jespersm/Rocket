@@ -28,7 +28,7 @@ use crate::data::Limits;
 pub struct Request<'r> {
     method: Atomic<Method>,
     uri: Origin<'r>,
-    headers: HeaderMap<'r>,
+    headers: HeaderMap,
     remote: Option<SocketAddr>,
     pub(crate) state: RequestState<'r>,
 }
@@ -250,6 +250,7 @@ impl<'r> Request<'r> {
     pub fn real_ip(&self) -> Option<IpAddr> {
         self.headers()
             .get_one("X-Real-IP")
+            .map(|v| String::from_utf8_lossy(v))
             .and_then(|ip| {
                 ip.parse()
                     .map_err(|_| warn_!("'X-Real-IP' header is malformed: {}", ip))
@@ -325,7 +326,7 @@ impl<'r> Request<'r> {
     /// # });
     /// ```
     #[inline(always)]
-    pub fn headers(&self) -> &HeaderMap<'r> {
+    pub fn headers(&self) -> &HeaderMap {
         &self.headers
     }
 
@@ -403,7 +404,10 @@ impl<'r> Request<'r> {
     #[inline(always)]
     pub fn content_type(&self) -> Option<&ContentType> {
         self.state.content_type.get_or_set(|| {
-            self.headers().get_one("Content-Type").and_then(|v| v.parse().ok())
+            self.headers().get_one("Content-Type")
+            .map(|v| String::from_utf8_lossy(v))
+            .and_then(|v| v.parse()
+            .ok())
         }).as_ref()
     }
 
@@ -425,7 +429,9 @@ impl<'r> Request<'r> {
     #[inline(always)]
     pub fn accept(&self) -> Option<&Accept> {
         self.state.accept.get_or_set(|| {
-            self.headers().get_one("Accept").and_then(|v| v.parse().ok())
+            self.headers().get_one("Accept")
+            .map(|v| String::from_utf8_lossy(v))
+            .and_then(|v| v.parse().ok())
         }).as_ref()
     }
 
@@ -843,6 +849,10 @@ impl<'r> Request<'r> {
         &mut self.state.cookies
     }
 
+    pub(crate) fn headers_mut(&mut self) -> &mut HeaderMap {
+        &mut self.headers
+    }
+    
     /// Convert from Hyper types into a Rocket Request.
     pub(crate) fn from_hyp(
         rocket: &'r Rocket,
@@ -884,14 +894,7 @@ impl<'r> Request<'r> {
             }
         }
 
-        // Set the rest of the headers.
-        for (name, value) in h_headers.iter() {
-            // This is not totally correct since values needn't be UTF8.
-            let value_str = String::from_utf8_lossy(value.as_bytes()).into_owned();
-            let header = Header::new(name.to_string(), value_str);
-            request.add_header(header);
-        }
-
+        request.headers_mut().reset_headers(h_headers);
         Ok(request)
     }
 }

@@ -1,7 +1,9 @@
-use std::borrow::{Borrow, Cow};
+use std::borrow::Cow;
 use std::fmt;
 
-use indexmap::IndexMap;
+use http::HeaderMap as HttpHeaderMap;
+use http::HeaderValue;
+use http::header::HeaderName;
 
 use crate::uncased::{Uncased, UncasedStr};
 
@@ -30,8 +32,8 @@ impl<'h> Header<'h> {
     /// # extern crate rocket;
     /// use rocket::http::Header;
     ///
-    /// let header = Header::new("X-Custom-Header", "custom value");
-    /// assert_eq!(header.to_string(), "X-Custom-Header: custom value");
+    /// let header = Header::new("X-Custom-Header", b"custom value");
+    /// assert_eq!(header.to_string().unwrap(), "X-Custom-Header: custom value");
     /// ```
     ///
     /// Use a `String` as a value to do the same.
@@ -120,11 +122,11 @@ impl fmt::Display for Header<'_> {
 /// means that, for instance, a look for a header by the name of "aBC" will
 /// returns values for headers of names "AbC", "ABC", "abc", and so on.
 #[derive(Clone, Debug, PartialEq, Default)]
-pub struct HeaderMap<'h> {
-    headers: IndexMap<Uncased<'h>, Vec<Cow<'h, str>>>
+pub struct HeaderMap {
+    headers: HttpHeaderMap
 }
 
-impl<'h> HeaderMap<'h> {
+impl HeaderMap {
     /// Returns an empty header collection.
     ///
     /// # Example
@@ -136,8 +138,8 @@ impl<'h> HeaderMap<'h> {
     /// let map = HeaderMap::new();
     /// ```
     #[inline(always)]
-    pub fn new() -> HeaderMap<'h> {
-        HeaderMap { headers: IndexMap::new() }
+    pub fn new() -> HeaderMap {
+        HeaderMap { headers: HttpHeaderMap::new() }
     }
 
     /// Returns true if `self` contains a header with the name `name`.
@@ -156,7 +158,7 @@ impl<'h> HeaderMap<'h> {
     /// ```
     #[inline]
     pub fn contains(&self, name: &str) -> bool {
-        self.headers.get(UncasedStr::new(name)).is_some()
+        self.headers.contains_key(name)
     }
 
     /// Returns the number of _values_ stored in the map.
@@ -181,7 +183,7 @@ impl<'h> HeaderMap<'h> {
     /// ```
     #[inline]
     pub fn len(&self) -> usize {
-        self.headers.iter().flat_map(|(_, values)| values.iter()).count()
+        self.headers.len()
     }
 
     /// Returns `true` if there are no headers stored in the map. Otherwise
@@ -217,16 +219,15 @@ impl<'h> HeaderMap<'h> {
     /// assert_eq!(map.len(), 2);
     ///
     /// let mut values = map.get("X-Custom");
-    /// assert_eq!(values.next(), Some("value_1"));
-    /// assert_eq!(values.next(), Some("value_2"));
+    /// assert_eq!(values.next().unwrap(), "value_1");
+    /// assert_eq!(values.next().unwrap(), "value_2");
     /// assert_eq!(values.next(), None);
     /// ```
     #[inline]
-    pub fn get(&self, name: &str) -> impl Iterator<Item=&str> {
+    pub fn get(&self, name: &str) -> impl Iterator<Item=&HeaderValue> {
         self.headers
-            .get(UncasedStr::new(name))
+            .get_all(name)
             .into_iter()
-            .flat_map(|values| values.iter().map(|val| val.borrow()))
     }
 
     /// Returns the _first_ value stored for the header with name `name` if
@@ -247,7 +248,7 @@ impl<'h> HeaderMap<'h> {
     /// assert_eq!(map.len(), 2);
     ///
     /// let first_value = map.get_one("X-Custom");
-    /// assert_eq!(first_value, Some("value_1"));
+    /// assert_eq!(first_value.uwrap(), "value_1");
     /// ```
     ///
     /// Attempt to retrieve a value that doesn't exist:
@@ -263,12 +264,9 @@ impl<'h> HeaderMap<'h> {
     /// assert_eq!(first_value, None);
     /// ```
     #[inline]
-    pub fn get_one<'a>(&'a self, name: &str) -> Option<&'a str> {
-        self.headers.get(UncasedStr::new(name))
-            .and_then(|values| {
-                if !values.is_empty() { Some(values[0].borrow()) }
-                else { None }
-            })
+    pub fn get_one<'a>(&'a self, name: &str) -> Option<&'a [u8]> {
+        self.headers.get(name)
+            .map(|value| value.as_bytes())
     }
 
     /// Replace any header that matches the name of `header.name` with `header`.
@@ -299,10 +297,10 @@ impl<'h> HeaderMap<'h> {
     /// let mut map = HeaderMap::new();
     ///
     /// map.replace(ContentType::JSON);
-    /// assert_eq!(map.get_one("Content-Type"), Some("application/json"));
+    /// assert_eq!(map.get_one("Content-Type").unwrap(), "application/json");
     ///
     /// map.replace(ContentType::GIF);
-    /// assert_eq!(map.get_one("Content-Type"), Some("image/gif"));
+    /// assert_eq!(map.get_one("Content-Type").unwrap(), "image/gif");
     /// assert_eq!(map.len(), 1);
     /// ```
     ///
@@ -315,16 +313,19 @@ impl<'h> HeaderMap<'h> {
     /// let mut map = HeaderMap::new();
     ///
     /// map.replace(ContentType::JSON);
-    /// assert_eq!(map.get_one("Content-Type"), Some("application/json"));
+    /// assert_eq!(map.get_one("Content-Type").unwrap(), "application/json");
     ///
     /// map.replace(Header::new("CONTENT-type", "image/gif"));
-    /// assert_eq!(map.get_one("Content-Type"), Some("image/gif"));
+    /// assert_eq!(map.get_one("Content-Type").unwrap(), "image/gif");
     /// assert_eq!(map.len(), 1);
     /// ```
     #[inline(always)]
-    pub fn replace<'p: 'h, H: Into<Header<'p>>>(&mut self, header: H) -> bool {
+    pub fn replace<'p, H: Into<Header<'p>>>(&mut self, header: H) -> bool {
         let header = header.into();
-        self.headers.insert(header.name, vec![header.value]).is_some()
+        let maybe_value = HeaderValue::from_str(&header.value);
+        let value = maybe_value.unwrap(); // TODO: Review, please - how to del with application which passes in a value HeaderMap won't accept
+        let name = HeaderName::from_bytes(header.name.string.as_bytes());
+        self.headers.insert(name.unwrap(), value).is_some() // TODO: Review, please - how to del with application which passes in a header name which won't pass as a header
     }
 
     /// A convenience method to replace a header using a raw name and value.
@@ -346,7 +347,7 @@ impl<'h> HeaderMap<'h> {
     /// assert_eq!(map.len(), 1);
     /// ```
     #[inline(always)]
-    pub fn replace_raw<'a: 'h, 'b: 'h, N, V>(&mut self, name: N, value: V) -> bool
+    pub fn replace_raw<'a, 'b, N, V>(&mut self, name: N, value: V) -> bool
         where N: Into<Cow<'a, str>>, V: Into<Cow<'b, str>>
     {
         self.replace(Header::new(name, value))
@@ -374,10 +375,25 @@ impl<'h> HeaderMap<'h> {
     /// assert_eq!(vals, vec!["value_3", "value_4"]);
     /// ```
     #[inline(always)]
-    pub fn replace_all<'n, 'v: 'h, H>(&mut self, name: H, values: Vec<Cow<'v, str>>)
-        where 'n: 'h, H: Into<Cow<'n, str>>
+    pub fn replace_all<'n, 'v, H>(&mut self, name: H, values: Vec<Cow<'v, str>>)
+        where H: Into<Cow<'n, str>>
     {
-        self.headers.insert(Uncased::new(name), values);
+        let name = name.into();
+        let name = name.as_bytes();
+        if values.is_empty() {
+            // Just wipe all previous values
+            while self.headers.remove(HeaderName::from_bytes(name).unwrap()).is_some() {
+            }
+        } else {
+            // insert the first, append the rest
+            let value = HeaderValue::from_str(&values[0]).unwrap(); // TODO
+            self.headers.insert(HeaderName::from_bytes(name).unwrap(), value);
+
+            for value in values[1..].iter() {
+                let value = HeaderValue::from_str(value).unwrap(); // TODO
+                self.headers.insert(HeaderName::from_bytes(name).unwrap(), value);
+            }
+        }
     }
 
     /// Adds `header` into the map. If a header with `header.name` was
@@ -396,9 +412,16 @@ impl<'h> HeaderMap<'h> {
     /// assert_eq!(map.get("Set-Cookie").count(), 2);
     /// ```
     #[inline(always)]
-    pub fn add<'p: 'h, H: Into<Header<'p>>>(&mut self, header: H) {
+    pub fn add<'p, H: Into<Header<'p>>>(&mut self, header: H) {
         let header = header.into();
-        self.headers.entry(header.name).or_insert(vec![]).push(header.value);
+        let name = header.name.string.as_bytes(); // TODO
+         // TODO
+        let value = HeaderValue::from_str(&header.value).unwrap(); // TODO
+        if self.headers.contains_key(header.name.string.as_ref()) { 
+            self.headers.append(HeaderName::from_bytes(name).unwrap(), value);
+        } else {
+            self.headers.insert(HeaderName::from_bytes(name).unwrap(), value);
+        }
     }
 
     /// A convenience method to add a header using a raw name and value.
@@ -420,7 +443,7 @@ impl<'h> HeaderMap<'h> {
     /// assert_eq!(values, vec!["value_1", "value_2"]);
     /// ```
     #[inline(always)]
-    pub fn add_raw<'a: 'h, 'b: 'h, N, V>(&mut self, name: N, value: V)
+    pub fn add_raw<'a, 'b, N, V>(&mut self, name: N, value: V)
         where N: Into<Cow<'a, str>>, V: Into<Cow<'b, str>>
     {
         self.add(Header::new(name, value))
@@ -452,12 +475,19 @@ impl<'h> HeaderMap<'h> {
     /// assert_eq!(values, vec!["value_1", "value_2", "value_3", "value_4"]);
     /// ```
     #[inline(always)]
-    pub fn add_all<'n, H>(&mut self, name: H, values: &mut Vec<Cow<'h, str>>)
-        where 'n:'h, H: Into<Cow<'n, str>>
+    pub fn add_all<'n, H>(&mut self, name: H, values: &mut Vec<Cow<'_, str>>)
+        where H: Into<Cow<'n, str>>
     {
-        self.headers.entry(Uncased::new(name))
-            .or_insert(vec![])
-            .append(values)
+        let name = name.into();
+        // TODO: This does a lot of unneccesary copying, but it just a test of the API
+        let new_values = std::mem::replace(values, Vec::new());
+        for value in new_values {
+            self.add_raw(name.as_ref(), value);
+        }
+    }
+
+    pub fn take_http_headers(&mut self) -> HttpHeaderMap {
+        std::mem::replace(&mut self.headers, HttpHeaderMap::new())
     }
 
     /// Remove all of the values for header with name `name`.
@@ -479,7 +509,8 @@ impl<'h> HeaderMap<'h> {
     /// assert_eq!(map.len(), 1);
     #[inline(always)]
     pub fn remove(&mut self, name: &str) {
-        self.headers.swap_remove(UncasedStr::new(name));
+        while self.headers.remove(name).is_some() {
+        }
     }
 
     /// Removes all of the headers stored in this map and returns a vector
@@ -519,7 +550,7 @@ impl<'h> HeaderMap<'h> {
     /// assert_eq!(expected_set, actual_set);
     /// ```
     #[inline(always)]
-    pub fn remove_all(&mut self) -> Vec<Header<'h>> {
+    pub fn remove_all<'h>(&'h mut self) -> Vec<Header<'h>> {
         let old_map = std::mem::replace(self, HeaderMap::new());
         old_map.into_iter().collect()
     }
@@ -561,10 +592,8 @@ impl<'h> HeaderMap<'h> {
     /// }
     /// ```
     pub fn iter(&self) -> impl Iterator<Item=Header<'_>> {
-        self.headers.iter().flat_map(|(key, values)| {
-            values.iter().map(move |val| {
-                Header::new(key.as_str(), &**val)
-            })
+        self.headers.iter().map(|(key, value)| {
+            Header::new(key.as_str(), String::from_utf8_lossy(value.as_bytes()))
         })
     }
 
@@ -607,23 +636,16 @@ impl<'h> HeaderMap<'h> {
     /// ```
     // TODO: Implement IntoIterator.
     #[inline(always)]
-    pub fn into_iter(self) -> impl Iterator<Item=Header<'h>> {
-        self.headers.into_iter().flat_map(|(name, value)| {
-            value.into_iter().map(move |value| {
-                Header { name: name.clone(), value }
-            })
+    pub fn into_iter(self) -> impl Iterator<Item=Header<'static>> {
+        self.headers.into_iter().map(|(key, value)| {
+            let value = String::from_utf8_lossy(value.as_bytes());
+            Header::new(key.unwrap().as_str().to_owned(), value.to_string())
         })
     }
 
-    /// Consumes `self` and returns an iterator over all of the headers stored
-    /// in the map in the way they are stored. This is a low-level mechanism and
-    /// should likely not be used.
-    /// WARNING: This is unstable! Do not use this method outside of Rocket!
-    #[doc(hidden)]
-    #[inline]
-    pub fn into_iter_raw(self)
-            -> impl Iterator<Item=(Uncased<'h>, Vec<Cow<'h, str>>)> {
-        self.headers.into_iter()
+    /// Replaces headers with fresh values from Hyper
+    pub fn reset_headers(&mut self, header_map: HttpHeaderMap) {
+        self.headers = header_map;
     }
 }
 
@@ -637,10 +659,10 @@ mod tests {
         map.add_raw("content-type", "application/json");
 
         let ct = map.get_one("Content-Type");
-        assert_eq!(ct, Some("application/json"));
+        assert_eq!(ct, Some("application/json".as_bytes()));
 
         let ct2 = map.get_one("CONTENT-TYPE");
-        assert_eq!(ct2, Some("application/json"))
+        assert_eq!(ct2, Some("application/json".as_bytes()))
     }
 
     #[test]
@@ -651,6 +673,6 @@ mod tests {
         map.add_raw("x-CUSTOM", "c");
 
         let vals: Vec<_> = map.get("x-CuStOm").collect();
-        assert_eq!(vals, vec!["a", "b", "c"]);
+        assert_eq!(vals, vec!["a".as_bytes(), "b".as_bytes(), "c".as_bytes()]);
     }
 }

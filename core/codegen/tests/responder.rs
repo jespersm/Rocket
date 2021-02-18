@@ -84,7 +84,7 @@ async fn responder_bar() {
     assert_eq!(response.status(), Status::InternalServerError);
     assert_eq!(response.content_type(), Some(ContentType::Plain));
     assert_eq!(response.body_string().await, Some("foo foo".into()));
-    assert_eq!(response.headers().get_one("Set-Cookie"), Some("cookie=here!"));
+    assert_eq!(response.headers().get_one("Set-Cookie"), Some("cookie=here!".as_bytes()));
 }
 
 #[derive(Responder)]

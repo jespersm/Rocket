@@ -22,7 +22,7 @@ fn test_root() {
             assert!(response.body().is_none());
 
             let location: Vec<_> = response.headers().get("Location").collect();
-            assert_eq!(location, vec!["/hello/Unknown"]);
+            assert_eq!(location, vec!["/hello/Unknown".as_bytes()]);
         });
     }
 

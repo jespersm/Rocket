@@ -157,15 +157,15 @@ mod static_tests {
 
         let response = client.get("/redir/inner").dispatch();
         assert_eq!(response.status(), Status::PermanentRedirect);
-        assert_eq!(response.headers().get("Location").next(), Some("/redir/inner/"));
+        assert_eq!(response.headers().get("Location").next().unwrap(), "/redir/inner/");
 
         let response = client.get("/redir/inner?foo=bar").dispatch();
         assert_eq!(response.status(), Status::PermanentRedirect);
-        assert_eq!(response.headers().get("Location").next(), Some("/redir/inner/?foo=bar"));
+        assert_eq!(response.headers().get("Location").next().unwrap(), "/redir/inner/?foo=bar");
 
         let response = client.get("/redir_index/inner").dispatch();
         assert_eq!(response.status(), Status::PermanentRedirect);
-        assert_eq!(response.headers().get("Location").next(), Some("/redir_index/inner/"));
+        assert_eq!(response.headers().get("Location").next().unwrap(), "/redir_index/inner/");
 
         // Paths with trailing slash are unaffected.
         let response = client.get("/redir/inner/").dispatch();
@@ -183,10 +183,10 @@ mod static_tests {
 
         let response = client.get("/redir").dispatch();
         assert_eq!(response.status(), Status::PermanentRedirect);
-        assert_eq!(response.headers().get("Location").next(), Some("/redir/"));
+        assert_eq!(response.headers().get("Location").next(), Some("/redir/".as_bytes()));
 
         let response = client.get("/redir_index").dispatch();
         assert_eq!(response.status(), Status::PermanentRedirect);
-        assert_eq!(response.headers().get("Location").next(), Some("/redir_index/"));
+        assert_eq!(response.headers().get("Location").next(), Some("/redir_index/".as_bytes()));
     }
 }

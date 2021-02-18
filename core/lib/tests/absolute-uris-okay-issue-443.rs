@@ -23,10 +23,10 @@ mod test_absolute_uris_okay {
 
         let response = client.get("/google").dispatch();
         let location = response.headers().get_one("Location");
-        assert_eq!(location, Some("https://www.google.com"));
+        assert_eq!(location, Some("https://www.google.com".as_bytes()));
 
         let response = client.get("/rocket").dispatch();
         let location = response.headers().get_one("Location");
-        assert_eq!(location, Some("https://rocket.rs:80"));
+        assert_eq!(location, Some("https://rocket.rs:80".as_bytes()));
     }
 }

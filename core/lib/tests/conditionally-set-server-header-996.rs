@@ -24,10 +24,10 @@ mod conditionally_set_server_header {
 
         let response = client.get("/do_not_overwrite").dispatch();
         let server = response.headers().get_one("Server");
-        assert_eq!(server, Some("Test"));
+        assert_eq!(server, Some("Test".as_bytes()));
 
         let response = client.get("/use_default").dispatch();
         let server = response.headers().get_one("Server");
-        assert_eq!(server, Some("Rocket"));
+        assert_eq!(server, Some("Rocket".as_bytes()));
     }
 }

@@ -596,7 +596,7 @@ pub type ResponseBody<'r> = Body<
 #[derive(Default)]
 pub struct Response<'r> {
     status: Option<Status>,
-    headers: HeaderMap<'r>,
+    headers: HeaderMap,
     body: Option<ResponseBody<'r>>,
 }
 
@@ -709,7 +709,9 @@ impl<'r> Response<'r> {
     /// ```
     #[inline(always)]
     pub fn content_type(&self) -> Option<ContentType> {
-        self.headers().get_one("Content-Type").and_then(|v| v.parse().ok())
+        self.headers().get_one("Content-Type")
+            .map(String::from_utf8_lossy)
+            .and_then(|v| v.parse().ok())
     }
 
     /// Sets the status of `self` to a custom `status` with status code `code`
@@ -748,6 +750,7 @@ impl<'r> Response<'r> {
     pub fn cookies(&self) -> impl Iterator<Item = Cookie<'_>> {
         self.headers()
             .get("Set-Cookie")
+            .map(|v| String::from_utf8_lossy(v.as_bytes()))
             .filter_map(|header| Cookie::parse_encoded(header).ok())
     }
 
@@ -769,8 +772,12 @@ impl<'r> Response<'r> {
     /// assert_eq!(custom_headers.next(), None);
     /// ```
     #[inline(always)]
-    pub fn headers(&self) -> &HeaderMap<'r> {
+    pub fn headers(&self) -> &HeaderMap {
         &self.headers
+    }
+
+    pub(crate) fn take_headers(&mut self) -> HeaderMap {
+        std::mem::replace(&mut self.headers, HeaderMap::new())
     }
 
     /// Sets the header `header` in `self`. Any existing headers with the name
@@ -1193,8 +1200,12 @@ impl<'r> Response<'r> {
             self.body = Some(body);
         }
 
-        for (name, values) in other.headers.into_iter_raw() {
-            self.headers.replace_all(name.into_cow(), values);
+        // Simple two-phase strategy for clearing, then adding headers
+        for header in other.headers.iter() {
+           self.headers.remove(&header.name.string);
+        }
+        for header in other.headers.into_iter() {
+            self.headers.add(header);
         }
     }
 
@@ -1224,10 +1235,10 @@ impl<'r> Response<'r> {
     /// assert_eq!(response.status(), Status::ImATeapot);
     ///
     /// let ctype: Vec<_> = response.headers().get("Content-Type").collect();
-    /// assert_eq!(ctype, vec![ContentType::HTML.to_string()]);
+    /// assert_eq!(ctype, vec![ContentType::HTML.to_string().as_bytes()]);
     ///
     /// let custom_values: Vec<_> = response.headers().get("X-Custom").collect();
-    /// assert_eq!(custom_values, vec!["value 2", "value 3", "value 1"]);
+    /// assert_eq!(custom_values, vec![b"value 2", b"value 3", b"value 1"]);
     /// ```
     pub fn join(&mut self, other: Response<'r>) {
         if self.status.is_none() {
@@ -1238,8 +1249,8 @@ impl<'r> Response<'r> {
             self.body = other.body;
         }
 
-        for (name, mut values) in other.headers.into_iter_raw() {
-            self.headers.add_all(name.into_cow(), &mut values);
+        for header in other.headers.into_iter() {
+            self.headers.add(header);
         }
     }
 }

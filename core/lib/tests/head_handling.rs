@@ -34,7 +34,7 @@ mod head_handling_tests {
         let response = client.head("/").dispatch();
 
         let content_type: Vec<_> = response.headers().get("Content-Type").collect();
-        assert_eq!(content_type, vec![ContentType::Plain.to_string()]);
+        assert_eq!(content_type, vec![ContentType::Plain.to_string().as_bytes()]);
         assert_eq!(response.status(), Status::Ok);
         assert_eq!(response.body().unwrap().known_size(), Some(13));
         assert!(response.into_bytes().unwrap().is_empty());
@@ -50,7 +50,7 @@ mod head_handling_tests {
         let response = client.head("/other").dispatch();
 
         let content_type: Vec<_> = response.headers().get("Content-Type").collect();
-        assert_eq!(content_type, vec![ContentType::JSON.to_string()]);
+        assert_eq!(content_type, vec![ContentType::JSON.to_string().as_bytes()]);
         assert_eq!(response.status(), Status::Ok);
         assert_eq!(response.body().unwrap().known_size(), Some(17));
         assert!(response.into_bytes().unwrap().is_empty());

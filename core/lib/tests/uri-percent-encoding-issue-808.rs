@@ -32,7 +32,7 @@ mod tests {
 
     #[test]
     fn uri_percent_encoding_redirect() {
-        let expected_location = vec!["/hello/John%5B%5D%7C%5C%25@%5E"];
+        let expected_location = vec!["/hello/John%5B%5D%7C%5C%25@%5E".as_bytes()];
         let client = Client::tracked(rocket()).unwrap();
 
         let response = client.get("/raw").dispatch();

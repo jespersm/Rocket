@@ -19,6 +19,6 @@ mod tests {
 
         let location: Vec<_> = response.headers().get("location").collect();
         assert_eq!(response.status(), Status::SeeOther);
-        assert_eq!(location, vec!["/"]);
+        assert_eq!(location, vec!["/".as_bytes()]);
     }
 }

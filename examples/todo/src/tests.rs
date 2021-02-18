@@ -127,7 +127,7 @@ fn test_bad_form_submissions() {
 
         let mut cookies = res.headers().get("Set-Cookie");
         assert_eq!(res.status(), Status::UnprocessableEntity);
-        assert!(!cookies.any(|value| value.contains("error")));
+        assert!(!cookies.any(|value| String::from_utf8_lossy(value.as_bytes()).contains("error")));
 
         // Submit a form with an empty description. We look for 'error' in the
         // cookies which corresponds to flash message being set as an error.
@@ -138,7 +138,7 @@ fn test_bad_form_submissions() {
             .await;
 
         let mut cookies = res.headers().get("Set-Cookie");
-        assert!(cookies.any(|value| value.contains("error")));
+        assert!(cookies.any(|value| String::from_utf8_lossy(value.as_bytes()).contains("error")));
 
         // Submit a form without a description. Expect a 422 but no flash error.
         let res = client.post("/todo")
@@ -149,6 +149,6 @@ fn test_bad_form_submissions() {
 
         let mut cookies = res.headers().get("Set-Cookie");
         assert_eq!(res.status(), Status::UnprocessableEntity);
-        assert!(!cookies.any(|value| value.contains("error")));
+        assert!(!cookies.any(|value| String::from_utf8_lossy(value.as_bytes()).contains("error")));
     })
 }

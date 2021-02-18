@@ -97,10 +97,14 @@ impl Rocket {
         let mut hyp_res = hyper::Response::builder()
             .status(response.status().code);
 
-        for header in response.headers().iter() {
-            let name = header.name.as_str();
-            let value = header.value.as_bytes();
-            hyp_res = hyp_res.header(name, value);
+        let mut response_header_map = response.take_headers();
+        let raw_headers = response_header_map.take_http_headers();
+        for (name, value) in raw_headers.into_iter() {
+            if name.is_some() {
+                hyp_res = hyp_res.header(name.unwrap(), value);
+            } else {
+                println!("Unnamed header value {:}", String::from_utf8_lossy(value.as_bytes()));
+            }
         }
 
         let send_response = move |res: hyper::ResponseBuilder, body| -> io::Result<()> {

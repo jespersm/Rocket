@@ -35,7 +35,7 @@ macro_rules! pub_response_impl {
         content_type -> Option<crate::http::ContentType>);
 
     getter_method!($doc_prelude, "HTTP headers",
-        headers -> &crate::http::HeaderMap<'_>);
+        headers -> &crate::http::HeaderMap);
 
     /// Return a cookie jar containing the HTTP cookies in the response.
     ///
