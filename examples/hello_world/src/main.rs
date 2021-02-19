@@ -1,8 +1,9 @@
 #[macro_use] extern crate rocket;
+use static_assertions::const_assert;
 
-use std::{char, str::FromStr};
+use std::str::FromStr;
 
-use rocket::{Request, Responder, Response, http::{Header, Status, hyper::HeaderName}, request::FromRequest};
+use rocket::{Request, Responder, http::{Header, Status, hyper::HeaderName}, request::FromRequest};
 use rocket::request::{Outcome};
 
 #[cfg(test)] mod tests;
@@ -18,14 +19,13 @@ struct MyResponse {
 #[derive(Debug)]
     struct MyHeaderError {
 }
-/*
-const fn check(header_name: &str) -> bool {
-    let header_name = header_name.as_bytes();
-    let n = header_name.len();
+
+const fn _check<'a>(header_name: &'a str) -> bool {
+    let header_name_bytes = header_name.as_bytes();
+    let n = header_name_bytes.len();
     let mut i = 0;
-    let mut safe = true;
     while i < n {
-        if header_name[i] > 127 {
+        if header_name_bytes[i] > 127 {
             return false;
         }
         i += 1;
@@ -33,29 +33,22 @@ const fn check(header_name: &str) -> bool {
     true
 }
 
-const fn check_header(header_name: &str) {
-    let safe = check(header_name);
-    let _ = [(); 0 - (!(safe) as usize)];
-}
-
 macro_rules! header_name {
-    ($name:tt) => { {
-            check_header($name);
+    ($name:tt) => {
+        {
+            const_assert!(_check($name));
             HeaderName::from_str($name).unwrap()
         }
     }
 }
 
-fn dope() -> HeaderName {
-    header_name!("hej")
-}
-*/
 #[rocket::async_trait]
 impl<'a, 'r> FromRequest<'a, 'r> for MyHeader {
     type Error = MyHeaderError;
 
     async fn from_request(req: &'a Request<'r>) -> Outcome<Self, Self::Error> {
-        let keys: Vec<_> = req.headers().get("MyHeader").collect();
+        let keys: Vec<_> = req.headers().get(header_name!("My-Header")).collect();
+
         match keys.len() {
             1 => Outcome::Success(MyHeader(keys[0].to_str().unwrap().to_owned())),
             _ => Outcome::Failure((Status::BadRequest, MyHeaderError {})),

@@ -5,6 +5,7 @@ use rocket::http::{Status, Cookie, ContentType};
 fn user_id_cookie(response: &LocalResponse<'_>) -> Option<Cookie<'static>> {
     let cookie = response.headers()
         .get("Set-Cookie")
+        .map(|v| String::from_utf8_lossy(v.as_bytes()))
         .filter(|v| v.starts_with("user_id"))
         .nth(0)
         .and_then(|val| Cookie::parse_encoded(val).ok());

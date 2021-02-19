@@ -183,10 +183,10 @@ mod static_tests {
 
         let response = client.get("/redir").dispatch();
         assert_eq!(response.status(), Status::PermanentRedirect);
-        assert_eq!(response.headers().get("Location").next(), Some("/redir/".as_bytes()));
+        assert_eq!(response.headers().get("Location").next().unwrap(), "/redir/");
 
         let response = client.get("/redir_index").dispatch();
         assert_eq!(response.status(), Status::PermanentRedirect);
-        assert_eq!(response.headers().get("Location").next(), Some("/redir_index/".as_bytes()));
+        assert_eq!(response.headers().get("Location").next().unwrap(), "/redir_index/");
     }
 }

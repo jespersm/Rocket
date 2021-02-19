@@ -24,7 +24,7 @@ macro_rules! assert_headers {
         let req = Request::from_hyp(&r, h_method, h_headers, &h_uri, h_addr).unwrap();
         let actual_headers = req.headers();
         for (key, values) in expected.iter() {
-            let actual: Vec<_> = actual_headers.get(key).collect();
+            let actual: Vec<_> = actual_headers.get(*key).collect();
             assert_eq!(*values, actual);
         }
     })

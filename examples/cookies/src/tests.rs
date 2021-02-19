@@ -15,7 +15,7 @@ fn test_submit() {
 
     let cookie_headers: Vec<_> = response.headers().get("Set-Cookie").collect();
     assert_eq!(cookie_headers.len(), 1);
-    assert!(String::from_utf8_lossy(cookie_headers[0]).starts_with("message=Hello%20from%20Rocket!"));
+    assert!(String::from_utf8_lossy(cookie_headers[0].as_bytes()).starts_with("message=Hello%20from%20Rocket!"));
 
     let location_headers: Vec<_> = response.headers().get("Location").collect();
     assert_eq!(location_headers, vec!["/".as_bytes()]);

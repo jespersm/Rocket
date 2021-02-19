@@ -1,7 +1,7 @@
 use std::borrow::Cow;
 use std::fmt;
 
-use http::HeaderMap as HttpHeaderMap;
+use http::{HeaderMap as HttpHeaderMap, header::AsHeaderName};
 use http::HeaderValue;
 use http::header::HeaderName;
 
@@ -224,7 +224,9 @@ impl HeaderMap {
     /// assert_eq!(values.next(), None);
     /// ```
     #[inline]
-    pub fn get(&self, name: &str) -> impl Iterator<Item=&HeaderValue> {
+    pub fn get<K>(&self, name: K) -> impl Iterator<Item=&HeaderValue>
+        where
+            K: AsHeaderName {
         self.headers
             .get_all(name)
             .into_iter()
