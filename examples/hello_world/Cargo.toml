@@ -7,4 +7,3 @@ publish = false
 
 [dependencies]
 rocket = { path = "../../core/lib" }
-static_assertions = "1.1.0"

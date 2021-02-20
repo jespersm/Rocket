@@ -1,5 +1,4 @@
 #[macro_use] extern crate rocket;
-use static_assertions::const_assert;
 
 use std::str::FromStr;
 
@@ -34,9 +33,10 @@ const fn _check<'a>(header_name: &'a str) -> bool {
 }
 
 macro_rules! header_name {
-    ($name:tt) => {
+    ($name:expr) => {
         {
-            const_assert!(_check($name));
+            #[allow(unknown_lints, eq_op)]
+            const _: [(); 0 - !{ const ASSERT: bool = _check($name); ASSERT } as usize] = [];
             HeaderName::from_str($name).unwrap()
         }
     }
@@ -47,9 +47,9 @@ impl<'a, 'r> FromRequest<'a, 'r> for MyHeader {
     type Error = MyHeaderError;
 
     async fn from_request(req: &'a Request<'r>) -> Outcome<Self, Self::Error> {
-        let keys: Vec<_> = req.headers().get(header_name!("My-Header")).collect();
+        let vals: Vec<_> = req.headers().get(header_name!("My-Header")).collect();
 
-        match keys.len() {
+        match vals.len() {
             1 => Outcome::Success(MyHeader(keys[0].to_str().unwrap().to_owned())),
             _ => Outcome::Failure((Status::BadRequest, MyHeaderError {})),
         }
